@@ -186,8 +186,11 @@ fun zustellText(tag: String): String {
 /** Kurzer Statustext für Karte und Widget. */
 fun Sendung.kurzStatus(): String {
     val zustellung = zustellText(erwartet)
+    val fenster = if (zeitfenster.isNotBlank()) zeitfenster.replace(" bis ", " und ").let { "zwischen $it" } else ""
     return when {
         status == Status.ZUGESTELLT -> "Zugestellt"
+        (status == Status.HEUTE || zustellung == "Zustellung heute") && fenster.isNotEmpty() -> "Heute $fenster"
+        zustellung == "Zustellung morgen" && fenster.isNotEmpty() -> "Morgen $fenster"
         status == Status.HEUTE || zustellung == "Zustellung heute" -> "Heute in Zustellung"
         zustellung.isNotEmpty() && status != Status.ABHOLBEREIT -> zustellung
         else -> Status.text(status)

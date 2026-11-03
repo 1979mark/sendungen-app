@@ -64,7 +64,7 @@ class SendungenWidget : AppWidgetProvider() {
                     v.setTextColor(zeilen[i], p.text)
                     val status = s.kurzStatus()
                     v.setTextViewText(stati[i], status)
-                    v.setTextColor(stati[i], p.statusFarbe(if (status == "Heute in Zustellung") Status.HEUTE else s.status))
+                    v.setTextColor(stati[i], p.statusFarbe(if (status.startsWith("Heute")) Status.HEUTE else s.status))
                 }
             }
             v.setViewVisibility(R.id.widget_leer, if (unterwegs.isEmpty()) View.VISIBLE else View.GONE)

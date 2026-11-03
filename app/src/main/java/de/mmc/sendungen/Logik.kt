@@ -47,7 +47,10 @@ data class Sendung(
     val status: Int = Status.ERFASST,
     val statusZeit: String = "",
     val versender: String = "",
-    val erwartet: String = ""
+    val erwartet: String = "",
+    val zeitfenster: String = "",
+    val liveText: String = "",
+    val liveZeit: String = ""
 ) {
     fun link(): String = Anbieter.link(anbieter, nummer)
     val istAmazon: Boolean get() = anbieter == "Amazon"
@@ -167,6 +170,27 @@ object Status {
         "(voraussichtlich|zustellung|lieferung|zugestellt|geliefert|ankunft)[^\\n]{0,50}?(\\d{1,2})\\.(\\d{1,2})\\.(\\d{2,4})?",
         RegexOption.IGNORE_CASE
     )
+
+    private val fensterImText = Regex(
+        "(\\d{1,2})[:.](\\d{2})\\s*(?:uhr)?\\s*(?:-|–|bis|und)\\s*(\\d{1,2})[:.](\\d{2})",
+        RegexOption.IGNORE_CASE
+    )
+    private val fensterWoerter = listOf("zustell", "lieferung", "ankunft", "zwischen", "heute", "voraussichtlich", "kommt", "liefer")
+
+    /** Zeitfenster wie "10:00 bis 14:00 Uhr" aus dem Mailtext oder null. */
+    fun zeitfenster(text: String): String? {
+        for (m in fensterImText.findAll(text)) {
+            val start = maxOf(0, m.range.first - 100)
+            val umfeld = text.substring(start, m.range.first).lowercase(Locale.GERMAN)
+            if (fensterWoerter.none { umfeld.contains(it) }) continue
+            val (h1, m1, h2, m2) = m.destructured
+            val a = h1.toInt()
+            val b = h2.toInt()
+            if (a !in 5..22 || b !in 6..23 || b <= a) continue
+            return "%02d:%s bis %02d:%s Uhr".format(a, m1, b, m2)
+        }
+        return null
+    }
 
     /** Erwarteter Zustelltag als "yyyy-MM-dd" oder null. */
     fun erwartet(code: Int?, mailZeit: Date, text: String): String? {
@@ -429,6 +453,7 @@ object Postfach {
 
         val status = Status.erkennen(betreff)
         val erwartet = Status.erwartet(status, zeitpunkt, gesamt)
+        val fenster = if (status == Status.ZUGESTELLT) "" else Status.zeitfenster(gesamt)
         val versender = absenderName(absender).let {
             if (absender.lowercase(Locale.GERMAN).contains("amazon")) "Amazon" else it
         }
@@ -436,7 +461,7 @@ object Postfach {
         var neu = 0
         val gefunden = Anbieter.finden(gesamt)
         for ((anbieter, nummer) in gefunden) {
-            if (db.verbuchen(k.name, anbieter, nummer, zeit, absender, betreff, status, erwartet, versender)) neu++
+            if (db.verbuchen(k.name, anbieter, nummer, zeit, absender, betreff, status, erwartet, versender, fenster)) neu++
         }
         if (gefunden.isNotEmpty()) {
             Protokoll.schreib("${k.name}: ${gefunden.joinToString { it.first + " " + it.second }}, ${Status.text(status ?: 0)}, \"${betreff.take(60)}\"")
@@ -444,7 +469,7 @@ object Postfach {
             // Amazon-Pakete ohne Sendungsnummer über den Artikelnamen verfolgen
             val artikel = Anbieter.amazonArtikel(betreff)
             if (artikel != null) {
-                if (db.verbuchen(k.name, "Amazon", artikel, zeit, absender, betreff, status, erwartet, "Amazon")) neu++
+                if (db.verbuchen(k.name, "Amazon", artikel, zeit, absender, betreff, status, erwartet, "Amazon", fenster)) neu++
                 Protokoll.schreib("${k.name}: Amazon \"$artikel\", ${Status.text(status ?: 0)}")
             }
         }
@@ -468,7 +493,7 @@ object Postfach {
 }
 
 /** Speicher für Sendungen und ihren Verlauf (lokal auf dem Handy). */
-class SendungDb(val ctx: Context) : SQLiteOpenHelper(ctx, "sendungen.db", null, 2) {
+class SendungDb(val ctx: Context) : SQLiteOpenHelper(ctx, "sendungen.db", null, 3) {
 
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
@@ -477,6 +502,7 @@ class SendungDb(val ctx: Context) : SQLiteOpenHelper(ctx, "sendungen.db", null, 
                 "absender TEXT, betreff TEXT, " +
                 "statuscode INTEGER DEFAULT 0, statuszeit TEXT DEFAULT '', " +
                 "versender TEXT DEFAULT '', erwartet TEXT DEFAULT '', " +
+                "zeitfenster TEXT DEFAULT '', livetext TEXT DEFAULT '', livezeit TEXT DEFAULT '', " +
                 "PRIMARY KEY (konto, anbieter, nummer))"
         )
         ereignisTabelle(db)
@@ -498,6 +524,11 @@ class SendungDb(val ctx: Context) : SQLiteOpenHelper(ctx, "sendungen.db", null, 
             db.execSQL("ALTER TABLE sendungen ADD COLUMN erwartet TEXT DEFAULT ''")
             ereignisTabelle(db)
         }
+        if (altVersion < 3) {
+            db.execSQL("ALTER TABLE sendungen ADD COLUMN zeitfenster TEXT DEFAULT ''")
+            db.execSQL("ALTER TABLE sendungen ADD COLUMN livetext TEXT DEFAULT ''")
+            db.execSQL("ALTER TABLE sendungen ADD COLUMN livezeit TEXT DEFAULT ''")
+        }
     }
 
     /**
@@ -507,7 +538,8 @@ class SendungDb(val ctx: Context) : SQLiteOpenHelper(ctx, "sendungen.db", null, 
     @Synchronized
     fun verbuchen(
         konto: String, anbieter: String, nummer: String, zeit: String,
-        absender: String, betreff: String, status: Int?, erwartet: String?, versender: String
+        absender: String, betreff: String, status: Int?, erwartet: String?, versender: String,
+        fenster: String? = null
     ): Boolean {
         val probe = Sendung(konto, anbieter, nummer, "", "", "")
         if (Einstellungen.istAusgeblendet(ctx, probe)) return false
@@ -538,6 +570,7 @@ class SendungDb(val ctx: Context) : SQLiteOpenHelper(ctx, "sendungen.db", null, 
                 put("statuszeit", if (status != null) zeit else "")
                 put("versender", versender)
                 put("erwartet", erwartet ?: "")
+                put("zeitfenster", fenster ?: "")
             })
             return true
         }
@@ -551,6 +584,9 @@ class SendungDb(val ctx: Context) : SQLiteOpenHelper(ctx, "sendungen.db", null, 
         }
         if (erwartet != null && erwartet.isNotEmpty() && (status == null || zeit >= statusZeit || altErwartet.isEmpty())) {
             werte.put("erwartet", erwartet)
+        }
+        if (fenster != null && (status == null || zeit >= statusZeit)) {
+            werte.put("zeitfenster", fenster)
         }
         if ((alterVersender.isBlank() || istPaketdienst(alterVersender)) && versender.isNotBlank() && !istPaketdienst(versender)) {
             werte.put("versender", versender)
@@ -571,7 +607,7 @@ class SendungDb(val ctx: Context) : SQLiteOpenHelper(ctx, "sendungen.db", null, 
         val liste = mutableListOf<Sendung>()
         readableDatabase.query(
             "sendungen",
-            arrayOf("konto", "anbieter", "nummer", "datum", "absender", "betreff", "statuscode", "statuszeit", "versender", "erwartet"),
+            arrayOf("konto", "anbieter", "nummer", "datum", "absender", "betreff", "statuscode", "statuszeit", "versender", "erwartet", "zeitfenster", "livetext", "livezeit"),
             null, null, null, null, "statuszeit DESC"
         ).use { c ->
             while (c.moveToNext()) {
@@ -586,12 +622,46 @@ class SendungDb(val ctx: Context) : SQLiteOpenHelper(ctx, "sendungen.db", null, 
                         status = c.getInt(6),
                         statusZeit = c.getString(7) ?: "",
                         versender = c.getString(8) ?: "",
-                        erwartet = c.getString(9) ?: ""
+                        erwartet = c.getString(9) ?: "",
+                        zeitfenster = c.getString(10) ?: "",
+                        liveText = c.getString(11) ?: "",
+                        liveZeit = c.getString(12) ?: ""
                     )
                 )
             }
         }
         return liste
+    }
+
+    /** Übernimmt den Stand, den der Paketdienst meldet (hat Vorrang vor den Mails). */
+    @Synchronized
+    fun liveSetzen(s: Sendung, l: LiveStatus) {
+        val jetzt = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.GERMANY).format(Date())
+        val werte = ContentValues().apply {
+            put("livetext", l.text)
+            put("livezeit", jetzt)
+            if (l.status != null) {
+                put("statuscode", l.status)
+                put("statuszeit", jetzt)
+            }
+            if (l.status == Status.ZUGESTELLT) {
+                put("erwartet", "")
+                put("zeitfenster", "")
+            } else {
+                if (!l.erwartet.isNullOrBlank()) put("erwartet", l.erwartet)
+                if (!l.fenster.isNullOrBlank()) put("zeitfenster", l.fenster)
+            }
+        }
+        val db = writableDatabase
+        db.update("sendungen", werte, "anbieter = ? AND nummer = ?", arrayOf(s.anbieter, s.nummer))
+        for (e in l.ereignisse) {
+            db.insertWithOnConflict("ereignisse", null, ContentValues().apply {
+                put("anbieter", s.anbieter)
+                put("nummer", s.nummer)
+                put("zeit", e.zeit)
+                put("text", e.text)
+            }, SQLiteDatabase.CONFLICT_IGNORE)
+        }
     }
 
     fun verlauf(s: Sendung): List<Ereignis> {
@@ -612,8 +682,13 @@ class SendungDb(val ctx: Context) : SQLiteOpenHelper(ctx, "sendungen.db", null, 
         val grenze = SimpleDateFormat("yyyy-MM-dd", Locale.GERMANY).format(
             Calendar.getInstance().apply { add(Calendar.DAY_OF_MONTH, -14) }.time
         )
+        // Ohne Neuigkeit seit 10 Tagen gilt eine Sendung als erledigt
+        val veraltet = SimpleDateFormat("yyyy-MM-dd", Locale.GERMANY).format(
+            Calendar.getInstance().apply { add(Calendar.DAY_OF_MONTH, -10) }.time
+        )
         // Die Sendung mit der neuesten Mail steht oben
         val unterwegs = alle.filter { it.status != Status.ZUGESTELLT }
+            .filter { maxOf(it.statusZeit, it.datum).take(10) >= veraltet }
             .sortedByDescending { maxOf(it.statusZeit, it.datum) }
         val zugestellt = alle.filter { it.status == Status.ZUGESTELLT && it.statusZeit.take(10) >= grenze }
         return Pair(unterwegs, zugestellt)

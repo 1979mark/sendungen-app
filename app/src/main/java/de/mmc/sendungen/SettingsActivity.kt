@@ -66,6 +66,25 @@ class SettingsActivity : Activity() {
             )
         }
 
+        // Live-Abfrage bei den Paketdiensten
+        val pr = Einstellungen.prefs(this)
+        abschnitt(
+            box, "Live-Status DHL",
+            listOf(
+                Feld("dhl_schluessel", "API-Schlüssel", pr.getString("dhl_schluessel", "") ?: "", "von developer.dhl.com", Art.PASSWORT),
+                Feld("plz", "Postleitzahl", pr.getString("plz", "") ?: "", "für genauere Angaben", Art.ZAHL)
+            ),
+            "Kostenlos auf developer.dhl.com: App anlegen, \"Shipment Tracking - Unified\" hinzufügen, den Consumer Key hier eintragen."
+        )
+        abschnitt(
+            box, "Live-Status UPS",
+            listOf(
+                Feld("ups_id", "Client-ID", pr.getString("ups_id", "") ?: "", "von developer.ups.com", Art.PASSWORT),
+                Feld("ups_geheim", "Client-Secret", pr.getString("ups_geheim", "") ?: "", "von developer.ups.com", Art.PASSWORT)
+            ),
+            "Auf developer.ups.com mit dem UPS-Konto anmelden, eine App mit der Tracking-API anlegen und beide Werte hier eintragen. DPD und GLS fragt die App ohne Schlüssel ab."
+        )
+
         // Automatischer Abgleich im Hintergrund
         box.addView(text("AUTOMATIK", 13f, p.text2).apply { setPadding(dp(16), dp(24), dp(16), dp(6)) })
         val autoKarte = LinearLayout(this).apply {

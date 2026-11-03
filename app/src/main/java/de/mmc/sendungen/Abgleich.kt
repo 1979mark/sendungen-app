@@ -27,7 +27,7 @@ object Abgleich {
             Protokoll.init(c)
             val db = SendungDb(c)
             val tage = Einstellungen.tage(c)
-            Protokoll.schreib("Aktualisierung gestartet ($quelle, App-Version 1.4, $tage Tage)")
+            Protokoll.schreib("Aktualisierung gestartet ($quelle, App-Version 1.5, $tage Tage)")
             val ergebnisse = Einstellungen.konten(c).map { k ->
                 when {
                     k.passwort.isBlank() -> Ergebnis(k.name, "Nicht eingerichtet, Passwort fehlt", 0)
@@ -40,6 +40,12 @@ object Abgleich {
                         Ergebnis(k.name, fehlerText(e), 2)
                     }
                 }
+            }
+            // Danach den aktuellen Stand direkt bei den Paketdiensten abfragen
+            try {
+                Live.aktualisieren(c, db, quelle == "von Hand", melde)
+            } catch (e: Throwable) {
+                Protokoll.fehler("Live-Abfrage", e)
             }
             if (ergebnisse.any { it.zustand == 1 }) {
                 Einstellungen.prefs(c).edit().putLong("zuletzt", System.currentTimeMillis()).apply()

@@ -84,6 +84,22 @@ Neu in Version 1.1 (neues Design)
 Update installieren: neue Sendungen.apk aufs Handy, antippen, "Aktualisieren"
 wählen. Die eingetragenen Passwörter und Sendungen bleiben erhalten.
 
+Neu in Version 1.5
+------------------
+- Zeitfenster: Steht in der Mail eine Uhrzeit (zum Beispiel bei Amazon
+  "10:00 - 14:00"), zeigt die App "Heute zwischen 10:00 und 14:00 Uhr".
+- Live-Status beim Paketdienst: Nach dem Mail-Abruf fragt die App den
+  aktuellen Stand direkt ab und übernimmt "Zugestellt", Zustelltag,
+  Zeitfenster und Verlauf.
+  * DHL: API-Schlüssel von developer.dhl.com in den Einstellungen eintragen.
+  * UPS: Client-ID und Client-Secret von developer.ups.com eintragen.
+  * DPD und GLS: ohne Schlüssel, über die öffentlichen Daten der Webseiten
+    (kann sich ändern, Fehler stehen dann im Protokoll).
+  * Hermes und Amazon: nur über die Mails.
+- Sendungen ohne Neuigkeit seit 10 Tagen werden als erledigt ausgeblendet.
+- MMC-Logo oben in der App.
+- Neue Dateien: Live.kt, res\drawable-nodpi\logo_mmc.png
+
 Neu in Version 1.4
 ------------------
 - Automatik: Alle 30 Minuten prüft die App im Hintergrund die Postfächer und

@@ -55,6 +55,22 @@ class MainActivity : Activity() {
         fensterFarben(p)
         val rand = dp(16)
 
+        // Logo klein oben links (im Dunkelmodus auf heller Fläche, damit die Schrift lesbar bleibt)
+        val logo = android.widget.ImageView(this).apply {
+            setImageResource(R.drawable.logo_mmc)
+            adjustViewBounds = true
+            contentDescription = "MMC-Werbung"
+            if (p.dunkel) {
+                background = rund(0xFFFFFFFF.toInt(), 8)
+                setPadding(dp(6), dp(3), dp(6), dp(3))
+            }
+        }
+        val logoZeile = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(rand, dp(12), rand, 0)
+            addView(logo, LinearLayout.LayoutParams(passend, dp(30)))
+        }
+
         // Kopfzeile: großer Titel links, Einstellungen rechts
         val kopf = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -113,6 +129,7 @@ class MainActivity : Activity() {
         setContentView(LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(p.hintergrund)
+            addView(logoZeile, LinearLayout.LayoutParams(voll, passend))
             addView(kopf, LinearLayout.LayoutParams(voll, passend))
             addView(untertitel, LinearLayout.LayoutParams(voll, passend))
             addView(scroll, LinearLayout.LayoutParams(voll, 0, 1f))
@@ -255,7 +272,7 @@ class MainActivity : Activity() {
             ellipsize = TextUtils.TruncateAt.END
         })
         mitte.addView(text(statusText, 15f, p.statusFarbe(
-            if (statusText == "Heute in Zustellung") Status.HEUTE else s.status
+            if (statusText.startsWith("Heute")) Status.HEUTE else s.status
         ), SCHRIFT_FETT).apply {
             setPadding(0, dp(2), 0, dp(2))
             maxLines = 1
@@ -294,7 +311,7 @@ class MainActivity : Activity() {
         kopfText.addView(text(s.anzeigeName(), 20f, p.text, SCHRIFT_TITEL).apply { maxLines = 2 })
         val statusText = s.kurzStatus()
         kopfText.addView(text(statusText, 16f, p.statusFarbe(
-            if (statusText == "Heute in Zustellung") Status.HEUTE else s.status
+            if (statusText.startsWith("Heute")) Status.HEUTE else s.status
         ), SCHRIFT_FETT))
         kopf.addView(kopfText, LinearLayout.LayoutParams(0, passend, 1f))
         box.addView(kopf)
@@ -321,6 +338,14 @@ class MainActivity : Activity() {
         if (s.istAmazon) zeile("Artikel", s.nummer)
         zeile("Zustellung", zustellText(s.erwartet).removePrefix("Zustellung ").ifBlank {
             if (s.status == Status.ZUGESTELLT) "erledigt" else "noch unbekannt"
+        })
+        if (s.zeitfenster.isNotBlank() && s.status != Status.ZUGESTELLT) zeile("Zeitfenster", s.zeitfenster)
+        if (s.liveText.isNotBlank()) zeile("Paketdienst meldet", s.liveText)
+        if (s.liveZeit.isNotBlank()) zeile("Zuletzt geprüft", try {
+            SimpleDateFormat("dd.MM. 'um' HH:mm 'Uhr'", Locale.GERMANY)
+                .format(SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.GERMANY).parse(s.liveZeit) ?: Date())
+        } catch (_: Exception) {
+            s.liveZeit
         })
         zeile("Postfach", s.konto)
         box.addView(eckdaten, LinearLayout.LayoutParams(voll, passend).apply { topMargin = dp(16) })
