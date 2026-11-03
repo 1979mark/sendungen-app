@@ -1,6 +1,6 @@
 {
-  "versionCode": 7,
-  "versionName": "1.6",
+  "versionCode": 8,
+  "versionName": "1.7",
   "apk": "https://raw.githubusercontent.com/1979mark/sendungen-app/main/update/Sendungen.apk",
-  "hinweis": "TikTok-Mails, Sendungsnummern mit Buchstaben, sauberes Lesen von Mails."
+  "hinweis": "Macht nach Abbruch weiter, geduldiger bei Netzaussetzern, TikTok-Mails."
 }
