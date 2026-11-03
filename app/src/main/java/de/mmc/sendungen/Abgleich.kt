@@ -27,7 +27,17 @@ object Abgleich {
             Protokoll.init(c)
             val db = SendungDb(c)
             val tage = Einstellungen.tage(c)
-            Protokoll.schreib("Aktualisierung gestartet ($quelle, App-Version 1.5, $tage Tage)")
+            val version = try {
+                c.packageManager.getPackageInfo(c.packageName, 0).versionName
+            } catch (_: Exception) {
+                "?"
+            }
+            Protokoll.schreib("Aktualisierung gestartet ($quelle, App-Version $version, $tage Tage)")
+            val vorher = try {
+                Hinweise.vorher(db)
+            } catch (_: Exception) {
+                emptyMap()
+            }
             val ergebnisse = Einstellungen.konten(c).map { k ->
                 when {
                     k.passwort.isBlank() -> Ergebnis(k.name, "Nicht eingerichtet, Passwort fehlt", 0)
@@ -49,6 +59,11 @@ object Abgleich {
             }
             if (ergebnisse.any { it.zustand == 1 }) {
                 Einstellungen.prefs(c).edit().putLong("zuletzt", System.currentTimeMillis()).apply()
+            }
+            try {
+                Hinweise.melden(c, vorher, db)
+            } catch (e: Throwable) {
+                Protokoll.fehler("Mitteilungen", e)
             }
             Protokoll.schreib("Aktualisierung beendet ($quelle)")
             SendungenWidget.aktualisiereAlle(c)
@@ -84,6 +99,13 @@ object Abgleich {
 class AbgleichWorker(context: Context, params: WorkerParameters) : Worker(context, params) {
     override fun doWork(): Result {
         return try {
+            // Als Vordergrunddienst laufen, damit Android den Abruf nicht nach kurzer Zeit kappt
+            try {
+                setForegroundAsync(Hinweise.abrufInfo(applicationContext)).get()
+            } catch (e: Throwable) {
+                Protokoll.init(applicationContext)
+                Protokoll.schreib("Hintergrund: ohne Vordergrunddienst (${e.javaClass.simpleName})")
+            }
             Abgleich.ausfuehren(applicationContext, "Hintergrund")
             Result.success()
         } catch (e: Throwable) {

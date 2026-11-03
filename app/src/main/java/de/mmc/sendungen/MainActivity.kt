@@ -50,6 +50,7 @@ class MainActivity : Activity() {
             bisher?.uncaughtException(faden, fehler)
         }
         db = SendungDb(this)
+        Hinweise.kanaeleAnlegen(this)
         Hintergrund.planen(this)
         p = palette()
         fensterFarben(p)
@@ -141,6 +142,17 @@ class MainActivity : Activity() {
         super.onResume()
         if (!laeuft) laden()
         nachUpdateSehen()
+        Hinweise.beimStartPruefen(this, p)
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == Hinweise.ANFRAGE_MITTEILUNG) {
+            if (grantResults.firstOrNull() != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                Einstellungen.prefs(this).edit().putBoolean("mitteilung_abgelehnt", true).apply()
+            }
+            // Die Akku-Frage folgt automatisch in onResume
+        }
     }
 
     // ---------- Update über GitHub ----------

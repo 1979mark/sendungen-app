@@ -26,6 +26,56 @@ class SettingsActivity : Activity() {
     )
 
     private val felder = mutableMapOf<String, EditText>()
+    private var zeileMitteilung: android.widget.TextView? = null
+    private var zeileAkku: android.widget.TextView? = null
+
+    override fun onResume() {
+        super.onResume()
+        freigabenZeigen()
+    }
+
+    private fun freigabenZeigen() {
+        zeileMitteilung?.let { zustand(it, Hinweise.mitteilungenErlaubt(this)) }
+        zeileAkku?.let { zustand(it, Hinweise.akkuFrei(this)) }
+    }
+
+    private fun zustand(t: android.widget.TextView, ok: Boolean) {
+        t.text = if (ok) "Erlaubt ✓" else "Einrichten ›"
+        t.setTextColor(if (ok) p.gruen else p.akzent)
+    }
+
+    /** Eine antippbare Zeile in einer Karte; gibt das Feld rechts für den Zustand zurück. */
+    private fun freigabeZeile(karte: LinearLayout, titel: String, aktion: () -> Unit): android.widget.TextView {
+        if (karte.childCount > 0) {
+            karte.addView(View(this).apply { setBackgroundColor(p.trenner) },
+                LinearLayout.LayoutParams(voll, 1).apply { leftMargin = dp(16) })
+        }
+        val zeile = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            minimumHeight = dp(52)
+            setPadding(dp(16), 0, dp(16), 0)
+            isClickable = true
+            isFocusable = true
+            background = tippbar(0x00000000, 12, p.trenner)
+            setOnClickListener { aktion() }
+        }
+        zeile.addView(text(titel, 17f, p.text), LinearLayout.LayoutParams(0, passend, 1f))
+        val rechts = text("", 15f, p.akzent)
+        zeile.addView(rechts)
+        karte.addView(zeile, LinearLayout.LayoutParams(voll, passend))
+        return rechts
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == Hinweise.ANFRAGE_MITTEILUNG &&
+            grantResults.firstOrNull() != android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            Einstellungen.prefs(this).edit().putBoolean("mitteilung_abgelehnt", true).apply()
+        }
+        freigabenZeigen()
+    }
     private lateinit var p: Palette
     private val voll = ViewGroup.LayoutParams.MATCH_PARENT
     private val passend = ViewGroup.LayoutParams.WRAP_CONTENT
@@ -106,6 +156,26 @@ class SettingsActivity : Activity() {
         autoKarte.addView(schalter)
         box.addView(autoKarte, LinearLayout.LayoutParams(voll, passend))
         box.addView(text("Die App schaut im Hintergrund nach neuen Mails und aktualisiert Liste und Widget. Android kann das bei wenig Akku etwas verzögern.", 13f, p.text2).apply {
+            setPadding(dp(16), dp(6), dp(16), 0)
+        }, LinearLayout.LayoutParams(voll, passend))
+
+        // Freigaben für Mitteilungen und Hintergrund
+        box.addView(text("HINTERGRUND UND MITTEILUNGEN", 13f, p.text2).apply { setPadding(dp(16), dp(24), dp(16), dp(6)) })
+        val freigabeKarte = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = rund(p.karte, 12)
+        }
+        zeileMitteilung = freigabeZeile(freigabeKarte, "Mitteilungen") { Hinweise.mitteilungenAnfragen(this) }
+        zeileAkku = freigabeZeile(freigabeKarte, "Akku nicht einschränken") {
+            if (Hinweise.akkuFrei(this)) Hinweise.appInfo(this) else Hinweise.akkuAnfragen(this)
+        }
+        freigabeZeile(freigabeKarte, "App-Info öffnen (Akku, Autostart)") { Hinweise.appInfo(this) }.text = "›"
+        freigabeZeile(freigabeKarte, "Probe-Mitteilung senden") {
+            Hinweise.probe(this)
+            if (!Hinweise.mitteilungenErlaubt(this)) Toast.makeText(this, "Erst Mitteilungen erlauben", Toast.LENGTH_SHORT).show()
+        }.text = "›"
+        box.addView(freigabeKarte, LinearLayout.LayoutParams(voll, passend))
+        box.addView(text("Mitteilungen kommen bei neuen Paketen, bei \"kommt heute\" oder \"morgen\", bei Abholbereit und bei Zustellung. Bei Samsung zusätzlich: Einstellungen, Akku, Hintergrund-Nutzungslimits, \"Nie schlafende Apps\" und Sendungen hinzufügen. Bei Xiaomi: in der App-Info \"Autostart\" einschalten.", 13f, p.text2).apply {
             setPadding(dp(16), dp(6), dp(16), 0)
         }, LinearLayout.LayoutParams(voll, passend))
 

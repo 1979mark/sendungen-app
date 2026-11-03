@@ -84,6 +84,20 @@ Neu in Version 1.1 (neues Design)
 Update installieren: neue Sendungen.apk aufs Handy, antippen, "Aktualisieren"
 wählen. Die eingetragenen Passwörter und Sendungen bleiben erhalten.
 
+Neu in Version 1.8
+------------------
+- Mitteilungen: bei neuem Paket, "kommt heute", "kommt morgen", abholbereit
+  und zugestellt. Bei mehr als 4 Neuigkeiten auf einmal eine Sammelmeldung.
+- Beim ersten Start fragt die App nacheinander: Mitteilungen erlauben und
+  Akku-Optimierung ausnehmen ("Zulassen" tippen).
+- Der Abruf im Hintergrund läuft als Vordergrunddienst mit kleinem, stillem
+  Hinweis, damit Android ihn nicht abbricht.
+- Einstellungen, neuer Bereich "Hintergrund und Mitteilungen": Zustand der
+  Freigaben, App-Info (Autostart bei Xiaomi, Akku bei Samsung),
+  Probe-Mitteilung.
+- Neue Datei: Hinweise.kt. Geändert: Abgleich.kt, MainActivity.kt,
+  SettingsActivity.kt, AndroidManifest.xml, app\build.gradle.kts
+
 Neu in Version 1.7
 ------------------
 - Wird der erste Abruf eines Postfachs unterbrochen (kein Internet, Handy
