@@ -1,6 +1,6 @@
 {
-  "versionCode": 6,
-  "versionName": "1.5",
+  "versionCode": 7,
+  "versionName": "1.6",
   "apk": "https://raw.githubusercontent.com/1979mark/sendungen-app/main/update/Sendungen.apk",
-  "hinweis": "Zeitfenster, Live-Status beim Paketdienst, dein Logo."
+  "hinweis": "TikTok-Mails, Sendungsnummern mit Buchstaben, sauberes Lesen von Mails."
 }
