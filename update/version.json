@@ -1,6 +1,6 @@
 {
-  "versionCode": 5,
-  "versionName": "1.4",
+  "versionCode": 6,
+  "versionName": "1.5",
   "apk": "https://raw.githubusercontent.com/1979mark/sendungen-app/main/update/Sendungen.apk",
-  "hinweis": "Automatik alle 30 Minuten, schnellerer Abruf, Updates direkt in der App."
+  "hinweis": "Zeitfenster, Live-Status beim Paketdienst, dein Logo."
 }
