@@ -84,6 +84,13 @@ Neu in Version 1.1 (neues Design)
 Update installieren: neue Sendungen.apk aufs Handy, antippen, "Aktualisieren"
 wählen. Die eingetragenen Passwörter und Sendungen bleiben erhalten.
 
+Neu in Version 1.7
+------------------
+- Wird der erste Abruf eines Postfachs unterbrochen (kein Internet, Handy
+  schläft), macht die App beim nächsten Mal genau dort weiter statt von vorn.
+- Bei Netzaussetzern wartet die App länger (bis 6 Versuche, etwa 2 Minuten).
+- Geänderte Dateien: Logik.kt, app\build.gradle.kts
+
 Neu in Version 1.6
 ------------------
 - TikTok-Shop-Mails werden jetzt erkannt (auch Temu). Der Betreff "befindet

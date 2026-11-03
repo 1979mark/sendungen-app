@@ -282,10 +282,10 @@ object Postfach {
         this["mail.imaps.writetimeout"] = "20000"
     }
 
-    /** Baut die Verbindung auf, bei Netzproblemen bis zu 3 Versuche. */
+    /** Baut die Verbindung auf, bei Netzproblemen bis zu 6 Versuche über etwa 2 Minuten. */
     private fun verbinden(session: Session, k: Konto, melde: (String) -> Unit): Store {
         var letzter: Exception? = null
-        for (versuch in 1..3) {
+        for (versuch in 1..6) {
             try {
                 val store = session.getStore("imaps")
                 store.connect(k.server, k.port, k.user, k.passwort)
@@ -294,10 +294,10 @@ object Postfach {
                 throw e
             } catch (e: Exception) {
                 letzter = e
-                Protokoll.schreib("${k.name}: Verbindung fehlgeschlagen (${e.message}), Versuch $versuch von 3")
-                if (versuch < 3) {
-                    melde("${k.name}: keine Verbindung, neuer Versuch …")
-                    Thread.sleep(4000L * versuch)
+                Protokoll.schreib("${k.name}: Verbindung fehlgeschlagen (${e.message}), Versuch $versuch von 6")
+                if (versuch < 6) {
+                    melde("${k.name}: kein Internet, warte und versuche es erneut ($versuch von 6) …")
+                    Thread.sleep(8000L * versuch)
                 }
             }
         }
@@ -372,6 +372,16 @@ object Postfach {
                 }
                 uids = (gmail ?: normaleSuche(ordner, tage, k).map { uf.getUID(it) }).sorted()
                 Protokoll.schreib("${k.name}: ${uids.size} passende Mails der letzten $tage Tage")
+                // Wurde ein früherer erster Abruf unterbrochen, dort weitermachen
+                val teil = if (prefs.getLong("${schluessel}_teilvalidity", -1L) == validity) {
+                    prefs.getLong("${schluessel}_teil", 0L)
+                } else {
+                    0L
+                }
+                if (teil > 0) {
+                    uids = uids.filter { it > teil }
+                    Protokoll.schreib("${k.name}: setze unterbrochenen Abruf fort, noch ${uids.size} Mails")
+                }
             }
             if (uids.size > MAX_MAILS) {
                 uids = uids.takeLast(MAX_MAILS)
@@ -386,6 +396,7 @@ object Postfach {
                 try {
                     val msg = (ordner as UIDFolder).getMessageByUID(uids[i])
                     if (msg != null) neu += verarbeiten(k, msg, db)
+                    if (letzteUid == 0L) teilMerken(prefs, schluessel, validity, uids[i])
                     i++
                 } catch (e: Exception) {
                     if (istVerbindungsfehler(e) && wiederholungen < 5) {
@@ -408,6 +419,7 @@ object Postfach {
             }
 
             if (allesGelesen) {
+                prefs.edit().remove("${schluessel}_teil").remove("${schluessel}_teilvalidity").apply()
                 val neuerStand = maxOf(letzteUid, uids.maxOrNull() ?: 0L, if (uidNext > 0) uidNext - 1 else 0L)
                 prefs.edit()
                     .putLong("${schluessel}_validity", validity)
@@ -429,6 +441,14 @@ object Postfach {
         }
         Protokoll.schreib("${k.name}: fertig, $neu neue Sendungen")
         return neu
+    }
+
+    /** Merkt sich beim ersten Abruf jede gelesene Mail, damit ein Abbruch nicht von vorn beginnt. */
+    private fun teilMerken(prefs: android.content.SharedPreferences, schluessel: String, validity: Long, uid: Long) {
+        prefs.edit()
+            .putLong("${schluessel}_teil", uid)
+            .putLong("${schluessel}_teilvalidity", validity)
+            .apply()
     }
 
     private fun normaleSuche(ordner: Folder, tage: Int, k: Konto): Array<Message> {
