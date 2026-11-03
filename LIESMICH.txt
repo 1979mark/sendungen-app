@@ -1,0 +1,141 @@
+SENDUNGEN - ANDROID-APP - LIESMICH
+==================================
+
+Was die App macht
+-----------------
+Die App läuft auf dem Handy. Sie ruft die drei Postfächer direkt per IMAP ab
+(nur lesend), erkennt Sendungsnummern von UPS, DHL, DPD, GLS und Hermes und
+zeigt sie als Liste. Ein Tipp auf eine Sendung öffnet die Verfolgung im Browser.
+Es ist kein Computer und keine Webseite nötig.
+
+Dateien
+-------
+Sendungsverfolgung\Android-App\
+  LIESMICH.txt                                      diese Anleitung
+  settings.gradle.kts, build.gradle.kts            Projekt-Grundgerüst
+  app\build.gradle.kts                             Abhängigkeiten, Version
+  app\src\main\AndroidManifest.xml                 Rechte und Startseite
+  app\src\main\java\de\mmc\sendungen\Logik.kt      Erkennung, Postfach, Speicher
+  app\src\main\java\de\mmc\sendungen\MainActivity.kt      Hauptbildschirm
+  app\src\main\java\de\mmc\sendungen\SettingsActivity.kt  Einstellungen
+  app\src\main\java\de\mmc\sendungen\Ui.kt          Farben, Karten, Knöpfe
+  app\src\main\res\drawable\ic_sendungen.xml          App-Symbol
+  app\src\main\java\de\mmc\sendungen\Protokoll.kt   Protokoll
+  app\src\main\java\de\mmc\sendungen\SendungenWidget.kt  Widget
+  app\src\main\res\layout\widget_sendungen.xml       Aussehen des Widgets
+  app\src\main\res\xml\widget_info.xml               Widget-Einstellungen
+
+Einrichtung am PC (einmalig)
+----------------------------
+1. Android Studio installieren (developer.android.com/studio).
+2. Android Studio öffnen: Open > Ordner "Android-App" auswählen.
+3. Warten, bis unten "Gradle sync" fertig ist. Android Studio lädt dabei
+   die Abhängigkeiten. Bei Fehlermeldungen zu Versionen: Meldung an Claude
+   schicken.
+4. Menü Build > Build Bundle(s) / APK(s) > Build APK(s).
+5. Die fertige Datei liegt unter:
+   Android-App\app\build\outputs\apk\debug\app-debug.apk
+6. Diese Datei auf das Handy übertragen (USB, Google Drive oder E-Mail an
+   dich selbst).
+
+Installation auf dem Handy
+--------------------------
+1. APK-Datei auf dem Handy antippen.
+2. Android fragt nach "Installation aus unbekannten Quellen": für diese
+   eine Datei erlauben.
+3. Installieren, dann "Sendungen" öffnen.
+
+Einstellungen in der App
+------------------------
+1. Einstellungen antippen.
+2. Bei jedem Konto das Passwort eintragen:
+   - MMC-Werbung: Passwort des Postfachs info@mmc-werbung.de.
+     Server: IMAP-Server von All-Inkl eintragen (im KAS unter E-Mail nachschauen).
+   - Gmail privat und Gmail 1979: App-Passwort von Google (16 Zeichen).
+     Erstellen unter: Google-Konto > Sicherheit > Bestätigung in zwei Schritten
+     > App-Passwörter. Ohne 2-Stufen-Bestätigung gibt es kein App-Passwort.
+3. Speichern antippen.
+4. Im Hauptbildschirm "Aktualisieren" antippen. Die erste Suche kann ein paar
+   Minuten dauern.
+
+Hinweise
+--------
+- Ein Konto ohne Passwort wird übersprungen.
+- Die Suche umfasst die letzten Tage laut Einstellung "Tage zurück" (Standard 60).
+- Die App speichert die Passwörter nur auf dem Handy, nicht in einer Cloud.
+  Das Handy mit Bildschirmsperre schützen.
+- Zum Entfernen: Einstellungen > Apps > Sendungen > Deinstallieren.
+  Dabei werden auch die gespeicherten Sendungen gelöscht.
+
+Neu in Version 1.1 (neues Design)
+---------------------------------
+- Großer Titel, ruhige Grautöne, eine blaue Akzentfarbe für alles Antippbare.
+- Jede Sendung als abgerundete Karte mit farbigem Kürzel des Paketdienstes,
+  Sendungsnummer, Absender, Postfach und Datum ("Heute", "Gestern").
+- Unten ein großer Knopf "Aktualisieren" mit Ladeanzeige.
+- Nach dem Aktualisieren zeigt eine Karte pro Postfach, was passiert ist:
+  grün = in Ordnung, rot = Fehler mit verständlicher Erklärung.
+- Lange auf eine Sendung drücken: Verfolgung öffnen, Nummer kopieren oder
+  aus der Liste entfernen. Entfernte Nummern kommen nicht wieder.
+- Einstellungen als gruppierte Karten mit Hinweistext unter jedem Postfach.
+- Hell- und Dunkelmodus folgen automatisch der Handy-Einstellung.
+- Eigenes App-Symbol (blaues Feld mit Paket).
+
+Update installieren: neue Sendungen.apk aufs Handy, antippen, "Aktualisieren"
+wählen. Die eingetragenen Passwörter und Sendungen bleiben erhalten.
+
+Neu in Version 1.4
+------------------
+- Automatik: Alle 30 Minuten prüft die App im Hintergrund die Postfächer und
+  aktualisiert Liste und Widget. Abschaltbar in den Einstellungen unter
+  "Automatik". Android kann das bei wenig Akku etwas verzögern.
+- Schneller: Nach dem ersten Abruf sucht die App nicht mehr, sondern holt nur
+  die seitdem eingegangenen Mails. Bei Gmail nutzt der erste Abruf die
+  schnelle Gmail-Suche.
+- Sortierung: Die Sendung mit der neuesten Mail steht immer oben.
+- Neue Datei: app\src\main\java\de\mmc\sendungen\Abgleich.kt
+- Neue Abhängigkeit: androidx.work (wird beim Bauen automatisch geladen)
+
+Neu in Version 1.3 (Stufe 1)
+----------------------------
+- Status aus den Mails: Die App liest Betreffzeilen wie "kommt heute",
+  "morgen für die Zustellung terminiert" oder "zugestellt" und zeigt pro
+  Sendung Versender, Stand und erwarteten Zustelltag.
+- Liste "Unterwegs". Zugestellte und stornierte
+  Pakete werden ausgeblendet.
+- Lesestand je Postfach: Die App merkt sich, bis zu welcher Mail sie gelesen
+  hat, und liest beim nächsten Mal nur neue Mails. Nur beim allerersten Abruf
+  werden die neuesten 300 passenden Mails gelesen. "Alle Mails neu einlesen"
+  in den Einstellungen setzt das zurück.
+- Antippen einer Sendung öffnet eine Detailansicht in der App mit Versender,
+  Paketdienst, Nummer, Zustellung und Verlauf aus allen Mails. Es wird nicht
+  mehr auf eine Webseite umgeleitet.
+- Amazon-Pakete ohne Sendungsnummer werden über den Artikelnamen verfolgt
+  (Bestellt, Versendet, In Zustellung, Geliefert).
+- Widget für den Startbildschirm: zeigt bis zu 4 Sendungen mit Zustellung.
+  Einrichten: lange auf eine freie Stelle im Startbildschirm drücken,
+  "Widgets", "Sendungen" suchen und auf den Bildschirm ziehen.
+  Das Widget zeigt den Stand der letzten Aktualisierung in der App.
+- Verbindung: Beim Aktualisieren bleibt der Bildschirm an. Bricht die
+  Verbindung ab, verbindet sich die App automatisch neu und macht an der
+  Stelle weiter.
+
+Neu in Version 1.2
+------------------
+- Der Server sucht vor: Es werden nur Mails geladen, in denen Wörter wie
+  "Sendungsnummer", "Paket" oder "Tracking" vorkommen oder die von DHL, UPS,
+  DPD, GLS oder Hermes kommen. Das geht viel schneller.
+- Beim Aktualisieren steht oben, was gerade passiert, zum Beispiel
+  "Gmail privat: Mail 12 von 48".
+- Protokoll: Nach dem Aktualisieren und in den Einstellungen gibt es
+  "Protokoll anzeigen". Dort steht genau, was die App gemacht hat und welcher
+  Fehler aufgetreten ist. Mit "Teilen" kannst du es an Claude schicken
+  (Passwörter stehen nie im Protokoll).
+- Abstürze werden ebenfalls ins Protokoll geschrieben.
+
+Fehler
+------
+- "Fehler, Authentication failed": Passwort falsch oder kein App-Passwort.
+- "Fehler, ... Connection timed out": Server-Name prüfen oder Internetverbindung.
+- Keine Sendungen gefunden: Die Erkennung arbeitet mit Mustern und Hinweiswörtern.
+  Mail mit der Nummer merken, dann prüfe ich das Muster.
