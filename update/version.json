@@ -1,6 +1,6 @@
 {
-  "versionCode": 8,
-  "versionName": "1.7",
+  "versionCode": 9,
+  "versionName": "1.8",
   "apk": "https://raw.githubusercontent.com/1979mark/sendungen-app/main/update/Sendungen.apk",
-  "hinweis": "Macht nach Abbruch weiter, geduldiger bei Netzaussetzern, TikTok-Mails."
+  "hinweis": "Mitteilungen, Akku-Freigabe, zuverlässiger Abruf im Hintergrund."
 }
