@@ -100,12 +100,43 @@ object Anbieter {
                 fund.add(Pair(name, treffer.value))
             }
         }
+        // Ersatzweg: Nummer direkt hinter "Trackingnummer", "Sendungsnummer" usw.
+        // (z. B. TikTok Shop, Temu, kleinere Shops mit Buchstaben in der Nummer)
+        for (treffer in beschriftet.findAll(text)) {
+            val nummer = treffer.groupValues[1].uppercase(Locale.GERMAN)
+            if (nummer.count { it.isDigit() } < 6) continue
+            if (fund.any { it.second.equals(nummer, ignoreCase = true) }) continue
+            val start = maxOf(0, treffer.range.first - 250)
+            val ende = minOf(text.length, treffer.range.last + 100)
+            fund.add(Pair(dienstImUmfeld(text.substring(start, ende)), nummer))
+        }
         return fund
     }
 
-    fun link(anbieter: String, nummer: String): String =
-        if (anbieter == "Amazon") "https://www.amazon.de/gp/css/order-history"
-        else muster[anbieter]?.link.orEmpty() + nummer
+    private val beschriftet = Regex(
+        "(?:tracking\\s*-?\\s*(?:nummer|number|id|code)|sendungs\\s*-?\\s*(?:nummer|id)|paket\\s*-?\\s*nummer|tracking\\s*no\\.?)" +
+            "\\s*[:#]?\\s*([A-Za-z0-9]{8,35})\\b",
+        RegexOption.IGNORE_CASE
+    )
+
+    /** Welcher Paketdienst im Umfeld der Nummer genannt wird, sonst "Sonstige". */
+    private fun dienstImUmfeld(umfeld: String): String {
+        val u = umfeld.lowercase(Locale.GERMAN)
+        return when {
+            u.contains("dhl") || u.contains("deutsche post") -> "DHL"
+            u.contains("dpd") -> "DPD"
+            u.contains("gls") -> "GLS"
+            u.contains("hermes") -> "Hermes"
+            Regex("\\bups\\b").containsMatchIn(u) -> "UPS"
+            else -> "Sonstige"
+        }
+    }
+
+    fun link(anbieter: String, nummer: String): String = when (anbieter) {
+        "Amazon" -> "https://www.amazon.de/gp/css/order-history"
+        "Sonstige" -> "https://parcelsapp.com/de/tracking/$nummer"
+        else -> muster[anbieter]?.link.orEmpty() + nummer
+    }
 
     private val amazonBetreff = Regex(
         "^(bestellt|versendet|in zustellung|zugestellt|geliefert)\\s*:\\s*(.+)$",
@@ -156,7 +187,8 @@ object Status {
             enthaelt(b, "zugestellt", "geliefert", "delivered", "abgegeben", "nebenan") &&
                 !enthaelt(b, "wird zugestellt", "wird geliefert", "terminiert") -> ZUGESTELLT
             enthaelt(b, "abholbereit", "zur abholung", "abholbenachrichtigung", "liegt bereit", "abholen") -> ABHOLBEREIT
-            enthaelt(b, "heute", "in zustellung", "gleich zugestellt", "out for delivery", "wird gleich") -> HEUTE
+            enthaelt(b, "heute", "in zustellung", "in der zustellung", "zur zustellung", "wird zugestellt",
+                "gleich zugestellt", "out for delivery", "wird gleich") -> HEUTE
             b.contains("morgen") -> MORGEN
             enthaelt(b, "versendet", "versandt", "verschickt", "unterwegs", "auf dem weg", "shipped",
                 "versandbestätigung", "versandbenachrichtigung", "versand") -> UNTERWEGS
@@ -237,7 +269,7 @@ object Postfach {
         "Paket", "Sendung", "Lieferung", "Zustellung", "zugestellt", "geliefert",
         "versandt", "Versand", "Versendet"
     )
-    private val absenderWoerter = listOf("dhl", "ups", "dpd", "gls", "hermes", "amazon")
+    private val absenderWoerter = listOf("dhl", "ups", "dpd", "gls", "hermes", "amazon", "tiktok", "temu")
     private const val MAX_MAILS = 300
 
     private fun eigenschaften(k: Konto) = Properties().apply {
@@ -478,11 +510,13 @@ object Postfach {
 
     private fun textVon(teil: Part): String {
         return when {
-            teil.isMimeType("text/plain") -> teil.content.toString()
+            teil.isMimeType("text/plain") -> saeubern(inhalt(teil))
             teil.isMimeType("text/html") ->
-                (teil.content as? String ?: "")
-                    .replace(Regex("<[^>]+>"), " ")
-                    .replace("&nbsp;", " ")
+                saeubern(
+                    inhalt(teil)
+                        .replace(Regex("(?is)<(style|script)[^>]*>.*?</\\1>"), " ")
+                        .replace(Regex("<[^>]+>"), " ")
+                )
             teil.isMimeType("multipart/*") -> {
                 val mp = teil.content as Multipart
                 (0 until mp.count).joinToString("\n") { textVon(mp.getBodyPart(it)) }
@@ -490,6 +524,33 @@ object Postfach {
             else -> ""
         }
     }
+
+    /** Inhalt eines Mailteils als Text, auch wenn JavaMail nur einen Datenstrom liefert. */
+    private fun inhalt(teil: Part): String = try {
+        when (val c = teil.content) {
+            is String -> c
+            is java.io.InputStream -> c.use { it.readBytes().toString(Charsets.UTF_8) }
+            else -> c?.toString() ?: ""
+        }
+    } catch (e: Exception) {
+        try {
+            teil.inputStream.use { it.readBytes().toString(Charsets.UTF_8) }
+        } catch (_: Exception) {
+            ""
+        }
+    }
+
+    /** HTML-Zeichen umwandeln und unsichtbare Zeichen entfernen, damit Nummern sauber erkannt werden. */
+    private fun saeubern(t: String): String = t
+        .replace(Regex("&#(\\d{1,6});")) { m -> m.groupValues[1].toIntOrNull()?.let { runCatching { String(Character.toChars(it)) }.getOrNull() } ?: " " }
+        .replace(Regex("&#[xX]([0-9a-fA-F]{1,6});")) { m -> m.groupValues[1].toIntOrNull(16)?.let { runCatching { String(Character.toChars(it)) }.getOrNull() } ?: " " }
+        .replace("&nbsp;", " ")
+        .replace("&amp;", "&")
+        .replace("&quot;", "\"")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace(Regex("[\\u200B-\\u200D\\uFEFF\\u00AD\\u2060]"), "")
+        .replace(' ', ' ')
 }
 
 /** Speicher für Sendungen und ihren Verlauf (lokal auf dem Handy). */

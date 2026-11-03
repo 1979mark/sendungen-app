@@ -84,6 +84,20 @@ Neu in Version 1.1 (neues Design)
 Update installieren: neue Sendungen.apk aufs Handy, antippen, "Aktualisieren"
 wählen. Die eingetragenen Passwörter und Sendungen bleiben erhalten.
 
+Neu in Version 1.6
+------------------
+- TikTok-Shop-Mails werden jetzt erkannt (auch Temu). Der Betreff "befindet
+  sich in der Zustellung" zählt als "Heute in Zustellung".
+- Sendungsnummern direkt hinter "Trackingnummer" oder "Sendungsnummer" werden
+  auch erkannt, wenn sie Buchstaben enthalten. Der Paketdienst wird aus dem
+  Text daneben bestimmt (zum Beispiel "Versandservice DHL Paket"), sonst
+  steht "Sonstige" dabei.
+- Mails, deren Text nur als Datenstrom oder mit HTML-Sonderzeichen ankommt,
+  werden jetzt sauber gelesen.
+- Geänderte Datei: Logik.kt (und app\build.gradle.kts: Version 1.6)
+- Nach dem Update einmal in den Einstellungen "Alle Mails neu einlesen"
+  tippen, damit bereits gelesene Mails nochmal geprüft werden.
+
 Neu in Version 1.5
 ------------------
 - Zeitfenster: Steht in der Mail eine Uhrzeit (zum Beispiel bei Amazon
