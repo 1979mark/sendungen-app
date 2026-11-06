@@ -147,14 +147,14 @@ object Hinweise {
     private fun schluessel(s: Sendung) = "${s.anbieter}|${s.nummer}"
 
     /** Stand vor dem Abruf: Paket -> Status. */
-    fun vorher(db: SendungDb): Map<String, Int> = db.alle().associate { schluessel(it) to it.status }
+    fun vorher(db: SendungDb): Map<String, Int> = db.zusammengefasst().associate { schluessel(it) to it.status }
 
     /** Vergleicht mit dem Stand nach dem Abruf und meldet, was sich Wichtiges getan hat. */
     fun melden(c: Context, vorher: Map<String, Int>, db: SendungDb) {
         if (!Einstellungen.prefs(c).getBoolean("mitteilungen", true)) return
         if (!mitteilungenErlaubt(c)) return
         val meldungen = mutableListOf<Pair<Sendung, String>>()
-        for (s in db.alle()) {
+        for (s in db.zusammengefasst()) {
             if (Einstellungen.istAusgeblendet(c, s)) continue
             val alt = vorher[schluessel(s)]
             val text = when {

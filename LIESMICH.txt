@@ -84,6 +84,18 @@ Neu in Version 1.1 (neues Design)
 Update installieren: neue Sendungen.apk aufs Handy, antippen, "Aktualisieren"
 wählen. Die eingetragenen Passwörter und Sendungen bleiben erhalten.
 
+Neu in Version 1.9
+------------------
+- Dieselbe Sendungsnummer aus mehreren Postfächern erscheint nur noch einmal,
+  mit dem neuesten Stand. Vorher konnte die Zustell-Mail in einem Postfach
+  stehen, während die Kopie aus dem anderen Postfach "unterwegs" blieb.
+- "Heute in Zustellung" gilt nur noch am selben Tag. Ist der Tag vorbei und
+  kam keine neue Nachricht, steht dort "Vermutlich zugestellt am ...", und
+  das Paket wandert aus der Liste.
+- Fällige Pakete fragt die App alle 30 Minuten beim Paketdienst nach.
+- Mehr Formulierungen für "zugestellt" (zum Beispiel "Ihr Paket ist da").
+- Geändert: Logik.kt, Ui.kt, Live.kt, Hinweise.kt, app\build.gradle.kts
+
 Neu in Version 1.8
 ------------------
 - Mitteilungen: bei neuem Paket, "kommt heute", "kommt morgen", abholbereit

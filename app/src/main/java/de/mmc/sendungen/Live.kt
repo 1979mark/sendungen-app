@@ -38,7 +38,12 @@ object Live {
         val upsGeheim = prefs.getString("ups_geheim", "")?.trim().orEmpty()
         val plz = prefs.getString("plz", "")?.trim().orEmpty()
 
-        val offen = db.aufgeteilt().first.filter { it.anbieter in listOf("DHL", "UPS", "DPD", "GLS") }
+        // Offene und "vermutlich zugestellte" Pakete prüfen, jede Nummer nur einmal
+        val grenze = SimpleDateFormat("yyyy-MM-dd", Locale.GERMANY).format(Date(System.currentTimeMillis() - 5 * 86_400_000L))
+        val offen = db.zusammengefasst()
+            .filter { it.anbieter in listOf("DHL", "UPS", "DPD", "GLS") }
+            .filter { it.status != Status.ZUGESTELLT && it.status != Status.STORNIERT }
+            .filter { maxOf(it.statusZeit, it.datum).take(10) >= grenze }
         if (offen.isEmpty()) return
         val jetzt = System.currentTimeMillis()
         // Abstand je Sendung: von Hand 10 Minuten, automatisch 2 Stunden (DHL erlaubt 250 Abfragen am Tag)
@@ -52,7 +57,9 @@ object Live {
             } catch (_: Exception) {
                 0L
             }
-            if (jetzt - zuletzt < abstand) continue
+            // Pakete, die heute kommen sollen oder schon fällig waren, öfter prüfen (alle 30 Minuten)
+            val dringend = s.status == Status.HEUTE || s.vermutlichDa() || zustellText(s.erwartet) == "Zustellung heute"
+            if (jetzt - zuletzt < (if (dringend && !vonHand) 25 * 60_000L else abstand)) continue
             melde("Paketdienste: ${s.anbieter} ${i + 1} von ${offen.size}")
             try {
                 val ergebnis = when (s.anbieter) {

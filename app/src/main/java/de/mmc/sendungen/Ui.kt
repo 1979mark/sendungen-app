@@ -187,11 +187,18 @@ fun zustellText(tag: String): String {
 fun Sendung.kurzStatus(): String {
     val zustellung = zustellText(erwartet)
     val fenster = if (zeitfenster.isNotBlank()) zeitfenster.replace(" bis ", " und ").let { "zwischen $it" } else ""
+    val heuteGemeldet = statusZeit.take(10) == java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.GERMANY).format(java.util.Date())
     return when {
         status == Status.ZUGESTELLT -> "Zugestellt"
-        (status == Status.HEUTE || zustellung == "Zustellung heute") && fenster.isNotEmpty() -> "Heute $fenster"
+        vermutlichDa() -> "Vermutlich zugestellt" + try {
+            val f = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.GERMANY)
+            " am " + java.text.SimpleDateFormat("dd.MM.", java.util.Locale.GERMANY).format(f.parse(sollteKommenAm())!!)
+        } catch (_: Exception) {
+            ""
+        }
+        ((status == Status.HEUTE && heuteGemeldet) || zustellung == "Zustellung heute") && fenster.isNotEmpty() -> "Heute $fenster"
         zustellung == "Zustellung morgen" && fenster.isNotEmpty() -> "Morgen $fenster"
-        status == Status.HEUTE || zustellung == "Zustellung heute" -> "Heute in Zustellung"
+        (status == Status.HEUTE && heuteGemeldet) || zustellung == "Zustellung heute" -> "Heute in Zustellung"
         zustellung.isNotEmpty() && status != Status.ABHOLBEREIT -> zustellung
         else -> Status.text(status)
     }

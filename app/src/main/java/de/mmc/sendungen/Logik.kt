@@ -54,6 +54,22 @@ data class Sendung(
 ) {
     fun link(): String = Anbieter.link(anbieter, nummer)
     val istAmazon: Boolean get() = anbieter == "Amazon"
+
+    /**
+     * "Heute in Zustellung" oder ein Zustelltag, der schon vorbei ist, ohne neuere Nachricht:
+     * Das Paket ist dann so gut wie sicher angekommen, auch wenn keine Zustell-Mail kam.
+     */
+    fun vermutlichDa(): Boolean {
+        if (status == Status.ZUGESTELLT || status == Status.STORNIERT || status == Status.ABHOLBEREIT) return false
+        val heute = java.text.SimpleDateFormat("yyyy-MM-dd", Locale.GERMANY).format(Date())
+        val gemeldetAm = statusZeit.take(10)
+        if (status == Status.HEUTE && gemeldetAm.isNotEmpty() && gemeldetAm < heute) return true
+        if (erwartet.isNotBlank() && erwartet < heute && gemeldetAm <= erwartet) return true
+        return false
+    }
+
+    /** Tag, an dem das Paket kommen sollte, für die Anzeige. */
+    fun sollteKommenAm(): String = erwartet.ifBlank { statusZeit.take(10) }
 }
 
 data class Ereignis(val zeit: String, val text: String)
@@ -184,7 +200,8 @@ object Status {
         val b = betreff.lowercase(Locale.GERMAN)
         return when {
             enthaelt(b, "storniert") -> STORNIERT
-            enthaelt(b, "zugestellt", "geliefert", "delivered", "abgegeben", "nebenan") &&
+            enthaelt(b, "zugestellt", "geliefert", "delivered", "abgegeben", "nebenan", "ist da",
+                "in empfang genommen") &&
                 !enthaelt(b, "wird zugestellt", "wird geliefert", "terminiert") -> ZUGESTELLT
             enthaelt(b, "abholbereit", "zur abholung", "abholbenachrichtigung", "liegt bereit", "abholen") -> ABHOLBEREIT
             enthaelt(b, "heute", "in zustellung", "in der zustellung", "zur zustellung", "wird zugestellt",
@@ -758,8 +775,27 @@ class SendungDb(val ctx: Context) : SQLiteOpenHelper(ctx, "sendungen.db", null, 
     }
 
     /** Unterwegs (nach erwartetem Tag sortiert) und kürzlich zugestellt. */
+    /**
+     * Dieselbe Sendungsnummer kann in mehreren Postfächern stehen (zum Beispiel Händler-Mail im
+     * einen, DHL-Mail im anderen). Hier wird daraus eine Sendung mit dem neuesten Stand.
+     */
+    fun zusammengefasst(): List<Sendung> =
+        alle().groupBy { "${it.anbieter}|${it.nummer}" }.values.map { gruppe ->
+            val neueste = gruppe.maxByOrNull { it.statusZeit }!!
+            val name = gruppe.map { it.versender }
+                .firstOrNull { it.isNotBlank() && !istPaketdienst(it) } ?: neueste.versender
+            val live = gruppe.maxByOrNull { it.liveZeit }!!
+            neueste.copy(
+                versender = name,
+                datum = gruppe.minOf { it.datum },
+                erwartet = neueste.erwartet.ifBlank { gruppe.map { it.erwartet }.firstOrNull { it.isNotBlank() } ?: "" },
+                liveText = live.liveText,
+                liveZeit = live.liveZeit
+            )
+        }
+
     fun aufgeteilt(): Pair<List<Sendung>, List<Sendung>> {
-        val alle = alle().filter { it.status != Status.STORNIERT }
+        val alle = zusammengefasst().filter { it.status != Status.STORNIERT }
         val grenze = SimpleDateFormat("yyyy-MM-dd", Locale.GERMANY).format(
             Calendar.getInstance().apply { add(Calendar.DAY_OF_MONTH, -14) }.time
         )
@@ -768,10 +804,10 @@ class SendungDb(val ctx: Context) : SQLiteOpenHelper(ctx, "sendungen.db", null, 
             Calendar.getInstance().apply { add(Calendar.DAY_OF_MONTH, -10) }.time
         )
         // Die Sendung mit der neuesten Mail steht oben
-        val unterwegs = alle.filter { it.status != Status.ZUGESTELLT }
+        val unterwegs = alle.filter { it.status != Status.ZUGESTELLT && !it.vermutlichDa() }
             .filter { maxOf(it.statusZeit, it.datum).take(10) >= veraltet }
             .sortedByDescending { maxOf(it.statusZeit, it.datum) }
-        val zugestellt = alle.filter { it.status == Status.ZUGESTELLT && it.statusZeit.take(10) >= grenze }
+        val zugestellt = alle.filter { (it.status == Status.ZUGESTELLT || it.vermutlichDa()) && it.statusZeit.take(10) >= grenze }
         return Pair(unterwegs, zugestellt)
     }
 }
